@@ -15,9 +15,6 @@ services:
       - GITHUB_PACKAGES_REPO=${GITHUB_PACKAGES_REPO}
       - GITHUB_DISPATCH_TOKEN=${GITHUB_DISPATCH_TOKEN}
     volumes:
-      - ./src:/app/src
-      - ./public:/app/public
-      - ./Caddyfile:/etc/caddy/Caddyfile
       - ./storage:/app/storage
       - caddy_data:/data
       - caddy_config:/config

@@ -1,0 +1,8 @@
+# Local Development Override
+# Docker Compose automatically merges this file with docker-compose.yml for local runs.
+services:
+  app:
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./Caddyfile:/etc/caddy/Caddyfile
