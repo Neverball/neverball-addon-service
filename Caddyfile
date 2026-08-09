@@ -11,6 +11,12 @@
 		max_size 25MB
 	}
 
+	# Route Gotify WebSocket and API requests to internal container via configurable path
+	handle /{$GOTIFY_PATH:gotify}/* {
+		uri strip_prefix /{$GOTIFY_PATH:gotify}
+		reverse_proxy gotify:80
+	}
+
 	# Deny access to storage internals (tokens, hashes, rate-limit files)
 	@storage_blocked {
 		path /storage/*

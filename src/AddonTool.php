@@ -66,32 +66,92 @@ class AddonTool
 
     private function notifyAdmin(array $zip, string $storagePath, string $approvalToken): void
     {
-        $to = $_ENV['NOTIFY_EMAIL'] ?? null;
-        if (!$to) {
-            return;
-        }
-
         $name    = $_POST['name'] ?? 'N/A';
         $email   = $_POST['email'] ?? '';
         $message = $_POST['message'] ?? '';
 
-        $fullSubject = 'New Neverball Addon Submission: ' . $zip['addonName'];
-        $url         = BASE_URL . '/storage/uploads/' . basename($storagePath);
-        $approveUrl  = BASE_URL . '/?token=' . $approvalToken;
+        $title      = 'New Neverball Addon Submission: ' . $zip['addonName'];
+        $url        = BASE_URL . '/storage/uploads/' . basename($storagePath);
+        $approveUrl = BASE_URL . '/?token=' . $approvalToken;
 
-        $body = "A new addon has been submitted.\n\n"
-            . "Submitter Name: $name\n"
-            . "Submitter Email: $email\n"
-            . "Addon Name: " . $zip['addonName'] . "\n"
-            . "ID: " . $zip['id'] . "\n\n"
-            . "Message:\n$message\n\n"
-            . "Download URL: $url\n\n"
-            . "--- Open pull request ---\n"
-            . "$approveUrl\n";
+        // 1. Gotify Push Notification (if configured)
+        $gotifyUrl   = $_ENV['GOTIFY_URL'] ?? null;
+        $gotifyToken = $_ENV['GOTIFY_TOKEN'] ?? null;
 
-        $from = $_ENV['NOTIFY_FROM'] ?? 'neverball-noreply@snth.net';
-        $headers = "From: $from\r\nContent-Type: text/plain; charset=UTF-8";
-        mail($to, '=?UTF-8?B?' . base64_encode($fullSubject) . '?=', $body, $headers);
+        if ($gotifyUrl && $gotifyToken) {
+            $gotifyMessage = "**Submitter Name:** $name\n"
+                . "**Submitter Email:** $email\n"
+                . "**Addon:** " . $zip['addonName'] . " (`" . $zip['id'] . "`)\n\n"
+                . "**Message:**\n$message\n\n"
+                . "[📥 Download ZIP]($url)\n\n"
+                . "[✅ Approve Addon]($approveUrl)";
+
+            $this->sendGotifyNotification($gotifyUrl, $gotifyToken, $title, $gotifyMessage);
+        }
+
+        // 2. Legacy Email Notification (if configured)
+        $to = $_ENV['NOTIFY_EMAIL'] ?? null;
+        if ($to) {
+            $body = "A new addon has been submitted.\n\n"
+                . "Submitter Name: $name\n"
+                . "Submitter Email: $email\n"
+                . "Addon Name: " . $zip['addonName'] . "\n"
+                . "ID: " . $zip['id'] . "\n\n"
+                . "Message:\n$message\n\n"
+                . "Download URL: $url\n\n"
+                . "--- Open pull request ---\n"
+                . "$approveUrl\n";
+
+            $from = $_ENV['NOTIFY_FROM'] ?? 'neverball-noreply@snth.net';
+            $headers = "From: $from\r\nContent-Type: text/plain; charset=UTF-8";
+            @mail($to, '=?UTF-8?B?' . base64_encode($title) . '?=', $body, $headers);
+        }
+    }
+
+    private function sendGotifyNotification(string $url, string $token, string $title, string $markdownMessage): void
+    {
+        $endpoint = rtrim($url, '/') . '/message';
+        $payload  = json_encode([
+            'title'    => $title,
+            'message'  => $markdownMessage,
+            'priority' => 5,
+            'extras'   => [
+                'client::display' => [
+                    'contentType' => 'text/markdown',
+                ],
+            ],
+        ]);
+
+        if (function_exists('curl_init')) {
+            $ch = \curl_init($endpoint);
+            \curl_setopt_array($ch, [
+                CURLOPT_POST           => true,
+                CURLOPT_POSTFIELDS     => $payload,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 10,
+                CURLOPT_HTTPHEADER     => [
+                    'X-Gotify-Key: ' . $token,
+                    'Content-Type: application/json',
+                ],
+            ]);
+            $res = \curl_exec($ch);
+            $err = \curl_error($ch);
+            \curl_close($ch);
+            if ($err) {
+                self::logError("Gotify notification failed: $err");
+            }
+        } else {
+            $options = [
+                'http' => [
+                    'method'  => 'POST',
+                    'header'  => "X-Gotify-Key: $token\r\nContent-Type: application/json\r\n",
+                    'content' => $payload,
+                    'timeout' => 10,
+                ],
+            ];
+            $context = stream_context_create($options);
+            @file_get_contents($endpoint, false, $context);
+        }
     }
 
 
