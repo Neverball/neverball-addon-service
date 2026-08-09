@@ -4,3 +4,4 @@
 /public/dist
 /storage
 /.env
+.DS_Store
