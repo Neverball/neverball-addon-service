@@ -1,0 +1,3 @@
+# Ignore all runtime contents of storage
+*
+!.gitignore
