@@ -1,3 +1,14 @@
+# Stage 1: Build Vite frontend assets
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY vite.config.js ./
+COPY resources/ resources/
+COPY public/ public/
+RUN npm run build
+
+# Stage 2: Final FrankenPHP runtime image
 FROM dunglas/frankenphp:1.2-php8.3
 
 # Install PHP extensions for ZIP processing and string handling
@@ -22,7 +33,9 @@ COPY Caddyfile /etc/caddy/Caddyfile
 # Copy application source
 COPY public/ public/
 COPY src/ src/
-COPY dist* public/dist/
+
+# Copy compiled Vite assets from frontend-builder stage
+COPY --from=frontend-builder /app/public/dist public/dist
 
 # Create storage directories with correct ownership
 RUN mkdir -p storage/uploads storage/tokens storage/hashes storage/logs \
