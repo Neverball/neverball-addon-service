@@ -1,0 +1,27 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    environment:
+      - SERVER_NAME=${SERVER_NAME:-addons.neverball.org}
+      - BASE_URL=${BASE_URL:-https://addons.neverball.org}
+      - NOTIFY_EMAIL=${NOTIFY_EMAIL}
+      - NOTIFY_FROM=${NOTIFY_FROM}
+      - GITHUB_PACKAGES_REPO=${GITHUB_PACKAGES_REPO}
+      - GITHUB_DISPATCH_TOKEN=${GITHUB_DISPATCH_TOKEN}
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./storage:/app/storage
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

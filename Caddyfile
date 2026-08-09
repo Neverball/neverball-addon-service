@@ -1,0 +1,28 @@
+{
+	admin off
+	frankenphp
+}
+
+{$SERVER_NAME:addons.neverball.org} {
+	root * /app/public
+	encode gzip zstd
+
+	request_body {
+		max_size 25MB
+	}
+
+	# Deny access to storage internals (tokens, hashes, rate-limit files)
+	@storage_blocked {
+		path /storage/*
+		not path /storage/uploads/*.zip
+	}
+	respond @storage_blocked "Forbidden" 403
+
+	# Deny access to hidden dotfiles
+	@dotfiles path */.*
+	error @dotfiles 404
+
+	php_server {
+		try_files {path} {path}/index.php index.php
+	}
+}

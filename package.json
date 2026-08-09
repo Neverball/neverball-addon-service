@@ -1,0 +1,26 @@
+{
+  "name": "neverball-addon-service",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch"
+  },
+  "dependencies": {
+    "buffer": "^6.0.3",
+    "jszip": "^3.10.1",
+    "neverball-checker": "github:parasti/neverball-checker#main"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.2",
+    "tailwindcss": "^4.2.2",
+    "vite": "^8.2.1"
+  },
+  "optionalDependencies": {
+    "@tailwindcss/oxide-linux-arm64-gnu": "^4.2.2",
+    "@tailwindcss/oxide-linux-arm64-musl": "^4.2.2",
+    "@tailwindcss/oxide-linux-x64-gnu": "^4.2.2",
+    "@tailwindcss/oxide-linux-x64-musl": "^4.2.2",
+    "@tailwindcss/oxide-wasm32-wasi": "^4.2.2"
+  }
+}

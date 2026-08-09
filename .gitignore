@@ -1,0 +1,11 @@
+/vendor
+/node_modules
+/dist
+/public/dist
+/storage/uploads/*.zip
+/storage/tokens/*
+/storage/hashes/*
+/storage/logs/*
+/storage/ratelimit/*
+!storage/*/.gitignore
+/.env
