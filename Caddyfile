@@ -16,6 +16,12 @@
 		reverse_proxy gotify:80
 	}
 
+	# Allow public downloads of uploaded ZIP files from /app/storage/uploads/
+	handle /storage/uploads/*.zip {
+		root * /app
+		file_server
+	}
+
 	# Deny access to storage internals (tokens, hashes, rate-limit files)
 	@storage_blocked {
 		path /storage/*
