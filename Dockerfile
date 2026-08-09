@@ -11,15 +11,12 @@ RUN npm run build
 # Stage 2: Final FrankenPHP runtime image
 FROM dunglas/frankenphp:1.2-php8.3
 
-# Install PHP extensions for ZIP processing and string handling
-RUN install-php-extensions zip mbstring intl curl
+# Install PHP extensions and composer
+RUN install-php-extensions zip mbstring intl curl @composer
 
 # Configure PHP upload limits
 RUN echo "upload_max_filesize = 25M" > $PHP_INI_DIR/conf.d/uploads.ini \
  && echo "post_max_size = 25M" >> $PHP_INI_DIR/conf.d/uploads.ini
-
-# Copy composer binary from official image
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
