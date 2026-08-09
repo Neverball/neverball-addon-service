@@ -6,3 +6,4 @@ services:
       - ./src:/app/src
       - ./public:/app/public
       - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./storage:/app/storage
