@@ -12,8 +12,7 @@
 	}
 
 	# Route Gotify WebSocket and API requests to internal container via configurable path
-	handle /{$GOTIFY_PATH:gotify}/* {
-		uri strip_prefix /{$GOTIFY_PATH:gotify}
+	handle_path /{$GOTIFY_PATH:gotify}* {
 		reverse_proxy gotify:80
 	}
 
