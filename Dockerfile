@@ -22,7 +22,6 @@ COPY Caddyfile /etc/caddy/Caddyfile
 # Copy application source
 COPY public/ public/
 COPY src/ src/
-COPY vendor/ vendor/
 COPY dist* public/dist/
 
 # Create storage directories with correct ownership
