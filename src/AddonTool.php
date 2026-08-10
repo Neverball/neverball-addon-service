@@ -435,18 +435,23 @@ class AddonTool
             return null;
         }
 
-        $data = json_decode(file_get_contents($path), true);
-        return $data ?: null;
+        $data = json_decode((string) @file_get_contents($path), true);
+        return is_array($data) ? $data : null;
     }
 
-    public static function deleteToken(string $storageDir, string $token): void
+    public static function markTokenUsed(string $storageDir, string $token): void
     {
         if (preg_match('/^[0-9a-f]{32}$/', $token)) {
             $path = $storageDir . '/tokens/' . $token;
             if (is_file($path)) {
-                @unlink($path);
+                @rename($path, $path . '.used');
             }
         }
+    }
+
+    public static function deleteToken(string $storageDir, string $token): void
+    {
+        self::markTokenUsed($storageDir, $token);
     }
 
     public static function consumeToken(string $storageDir, string $token): ?array
@@ -635,7 +640,7 @@ class AddonTool
 
                         if ($httpCode === 204) {
                             $ok  = true;
-                            $msg = 'Workflow triggered for <strong>' . htmlspecialchars($data['addonName']) . '</strong>. Check GitHub Actions for progress.';
+                            $msg = 'Dispatch event accepted for <strong>' . htmlspecialchars($data['addonName']) . '</strong>. <a href="https://github.com/' . htmlspecialchars($repo) . '/actions" target="_blank" rel="noopener" class="underline font-semibold text-green-900">Check GitHub Actions dashboard</a> to verify workflow build status.';
                             // Only delete token after successful dispatch
                             self::deleteToken(STORAGE_DIR, $token);
                         } else {
