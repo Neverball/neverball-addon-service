@@ -415,6 +415,7 @@ class AddonTool
             'submitter_name'    => $name,
             'submitter_email'   => $email,
             'submitter_message' => $message,
+            'submitted_at'      => gmdate('Y-m-d H:i:s \U\T\C'),
         ]);
         $tokenFile = $tokenDir . '/' . $token;
         file_put_contents($tokenFile, $data);
@@ -622,8 +623,8 @@ class AddonTool
                                 'addon_id'          => $data['id'],
                                 'addon_name'        => $data['addonName'],
                                 'submitter_name'    => $data['submitter_name'] ?? 'N/A',
-                                'submitter_email'   => $data['submitter_email'] ?? '',
                                 'submitter_message' => $data['submitter_message'] ?? '',
+                                'submitted_at'      => $data['submitted_at'] ?? gmdate('Y-m-d H:i:s \U\T\C'),
                             ],
                         ];
 
