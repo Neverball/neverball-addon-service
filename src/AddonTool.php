@@ -33,8 +33,12 @@ class AddonTool
         $this->checkDuplicate($tmpPath);
         $zip     = $this->extractZip($tmpPath);
 
+        $name    = $_POST['name'] ?? 'N/A';
+        $email   = $_POST['email'] ?? '';
+        $message = $_POST['message'] ?? '';
+
         $storagePath   = $this->storeZip($tmpPath, $zip['id']);
-        $approvalToken = $this->generateApprovalToken($zip, $storagePath);
+        $approvalToken = $this->generateApprovalToken($zip, $storagePath, $name, $email, $message);
 
         $this->notifyAdmin($zip, $storagePath, $approvalToken);
 
@@ -395,7 +399,7 @@ class AddonTool
     // Approval token
     // -------------------------------------------------------------------------
 
-    public function generateApprovalToken(array $zip, string $storagePath): string
+    public function generateApprovalToken(array $zip, string $storagePath, string $name, string $email, string $message): string
     {
         $tokenDir = STORAGE_DIR . '/tokens';
         if (!is_dir($tokenDir)) {
@@ -405,9 +409,12 @@ class AddonTool
 
         $token = bin2hex(random_bytes(16));
         $data  = json_encode([
-            'zip'       => basename($storagePath),
-            'id'        => $zip['id'],
-            'addonName' => $zip['addonName'],
+            'zip'               => basename($storagePath),
+            'id'                => $zip['id'],
+            'addonName'         => $zip['addonName'],
+            'submitter_name'    => $name,
+            'submitter_email'   => $email,
+            'submitter_message' => $message,
         ]);
         $tokenFile = $tokenDir . '/' . $token;
         file_put_contents($tokenFile, $data);
@@ -610,10 +617,13 @@ class AddonTool
                         $payload = [
                             'event_type'     => 'addon-submission',
                             'client_payload' => [
-                                'zip_url'    => BASE_URL . '/storage/uploads/' . $data['zip'],
-                                'assets_url' => BASE_URL . '/neverball-assets.json',
-                                'addon_id'   => $data['id'],
-                                'addon_name' => $data['addonName'],
+                                'zip_url'           => BASE_URL . '/storage/uploads/' . $data['zip'],
+                                'assets_url'        => BASE_URL . '/neverball-assets.json',
+                                'addon_id'          => $data['id'],
+                                'addon_name'        => $data['addonName'],
+                                'submitter_name'    => $data['submitter_name'] ?? 'N/A',
+                                'submitter_email'   => $data['submitter_email'] ?? '',
+                                'submitter_message' => $data['submitter_message'] ?? '',
                             ],
                         ];
 
@@ -804,6 +814,10 @@ AddonTool::handleRequest();
                     explicit permission of the original authors to submit this version.
                 </label>
             </div>
+
+            <p class="text-sm text-gray-500 italic leading-relaxed">
+                Note: Your name and message will be included in the public Git commit message and pull request when this submission is approved and merged into the repository.
+            </p>
 
             <div>
                 <button type="submit" id="submit-btn" disabled
