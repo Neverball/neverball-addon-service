@@ -817,7 +817,7 @@ AddonTool::handleRequest();
             </div>
 
             <p class="text-sm text-gray-500 italic leading-relaxed">
-                Note: Your name and message will be included in the public Git commit message and pull request when this submission is approved and merged into the repository.
+                Note: Your name and message will be included in the publicly visible commit history when your addon is approved.
             </p>
 
             <div>
