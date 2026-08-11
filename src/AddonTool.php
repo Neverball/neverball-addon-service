@@ -87,10 +87,10 @@ class AddonTool
                 . "**Submitter Email:** $email\n"
                 . "**Addon:** " . $zip['addonName'] . " (`" . $zip['id'] . "`)\n\n"
                 . "**Message:**\n$message\n\n"
-                . "[📥 Download ZIP]($url)\n\n"
-                . "[✅ Approve Addon]($approveUrl)";
+                . '<a href="' . htmlspecialchars($url) . '" target="_blank" rel="noopener">📥 Download ZIP</a>' . "\n\n"
+                . '<a href="' . htmlspecialchars($approveUrl) . '" target="_blank" rel="noopener">✅ Approve Addon</a>';
 
-            $this->sendGotifyNotification($gotifyUrl, $gotifyToken, $title, $gotifyMessage);
+            $this->sendGotifyNotification($gotifyUrl, $gotifyToken, $title, $gotifyMessage, $approveUrl);
         }
 
         // 2. Legacy Email Notification (if configured)
@@ -112,18 +112,28 @@ class AddonTool
         }
     }
 
-    private function sendGotifyNotification(string $url, string $token, string $title, string $markdownMessage): void
+    private function sendGotifyNotification(string $url, string $token, string $title, string $markdownMessage, string $clickUrl = ''): void
     {
         $endpoint = rtrim($url, '/') . '/message';
+        $extras   = [
+            'client::display' => [
+                'contentType' => 'text/markdown',
+            ],
+        ];
+
+        if ($clickUrl !== '') {
+            $extras['client::notification'] = [
+                'click' => [
+                    'url' => $clickUrl,
+                ],
+            ];
+        }
+
         $payload  = json_encode([
             'title'    => $title,
             'message'  => $markdownMessage,
             'priority' => 5,
-            'extras'   => [
-                'client::display' => [
-                    'contentType' => 'text/markdown',
-                ],
-            ],
+            'extras'   => $extras,
         ]);
 
         if (function_exists('curl_init')) {
