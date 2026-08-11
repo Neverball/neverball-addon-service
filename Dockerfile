@@ -34,6 +34,7 @@ COPY Caddyfile /etc/caddy/Caddyfile
 # Copy application source
 COPY public/ public/
 COPY src/ src/
+COPY notify ./
 
 # Copy compiled Vite assets from frontend-builder stage
 COPY --from=frontend-builder /app/public/dist public/dist
