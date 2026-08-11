@@ -1,5 +1,7 @@
 <?php
 
+namespace Neverball;
+
 class NotifyCommand
 {
     public static function run(?string $targetToken = null): void

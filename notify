@@ -25,5 +25,7 @@ require_once $baseDir . '/vendor/autoload.php';
 require_once $baseDir . '/src/AddonTool.php';
 require_once $baseDir . '/src/NotifyCommand.php';
 
+use Neverball\NotifyCommand;
+
 $targetToken = $argv[1] ?? null;
 NotifyCommand::run($targetToken);
