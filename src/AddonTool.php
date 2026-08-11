@@ -764,7 +764,7 @@ class AddonTool
             exit;
         }
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             header('Content-Type: application/json');
             // Catch any unhandled errors and return JSON instead of raw PHP output
             set_error_handler(function ($errno, $errstr, $errfile, $errline) {
@@ -791,6 +791,10 @@ class AddonTool
             exit;
         }
     }
+}
+
+if (PHP_SAPI === 'cli') {
+    return;
 }
 
 AddonTool::handleRequest();
