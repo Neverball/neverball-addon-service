@@ -436,7 +436,29 @@ class AddonTool
         }
 
         $data = json_decode((string) @file_get_contents($path), true);
-        return is_array($data) ? $data : null;
+        if (!is_array($data)) {
+            return null;
+        }
+
+        // Auto-resolve missing addonName or id from ZIP if missing in token JSON
+        if ((empty($data['addonName']) || empty($data['id'])) && !empty($data['zip'])) {
+            $zipPath = $storageDir . '/uploads/' . basename($data['zip']);
+            if (is_file($zipPath)) {
+                try {
+                    $extracted         = (new AddonTool())->extractZip($zipPath);
+                    $data['id']        = $data['id'] ?? $extracted['id'];
+                    $data['addonName'] = $data['addonName'] ?? $extracted['addonName'];
+                } catch (\Throwable $e) {
+                    $data['id']        = $data['id'] ?? pathinfo($data['zip'], PATHINFO_FILENAME);
+                    $data['addonName'] = $data['addonName'] ?? $data['id'];
+                }
+            }
+        }
+
+        $data['addonName'] = $data['addonName'] ?? ($data['id'] ?? 'Addon');
+        $data['id']        = $data['id'] ?? 'unknown';
+
+        return $data;
     }
 
     public static function markTokenUsed(string $storageDir, string $token): void
@@ -590,7 +612,7 @@ class AddonTool
 
                 if ($data) {
                     echo '<div class="bg-white p-6 rounded-lg shadow-sm border border-orange-100">';
-                    echo '<p class="text-base text-gray-700 mb-6">Are you sure you want to approve the addon <strong>' . htmlspecialchars($data['addonName']) . '</strong>?</p>';
+                    echo '<p class="text-base text-gray-700 mb-6">Are you sure you want to approve the addon <strong>' . htmlspecialchars((string) ($data['addonName'] ?? 'Addon')) . '</strong>?</p>';
                     echo '<form method="POST" action="/?token=' . htmlspecialchars($token) . '">';
                     echo '<button type="submit" class="px-6 py-3 rounded-md bg-orange-500 text-white text-base font-semibold hover:bg-orange-600 transition-colors">Approve Addon</button>';
                     echo '</form>';
@@ -640,7 +662,7 @@ class AddonTool
 
                         if ($httpCode === 204) {
                             $ok  = true;
-                            $msg = 'Dispatch event accepted for <strong>' . htmlspecialchars($data['addonName']) . '</strong>. <a href="https://github.com/' . htmlspecialchars($repo) . '/actions" target="_blank" rel="noopener" class="underline font-semibold text-green-900">Check GitHub Actions dashboard</a> to verify workflow build status.';
+                            $msg = 'Dispatch event accepted for <strong>' . htmlspecialchars((string) ($data['addonName'] ?? 'Addon')) . '</strong>. <a href="https://github.com/' . htmlspecialchars((string) $repo) . '/actions" target="_blank" rel="noopener" class="underline font-semibold text-green-900">Check GitHub Actions dashboard</a> to verify workflow build status.';
                             // Only delete token after successful dispatch
                             self::deleteToken(STORAGE_DIR, $token);
                         } else {
