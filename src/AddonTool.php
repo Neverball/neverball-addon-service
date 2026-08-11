@@ -68,12 +68,42 @@ class AddonTool
         file_put_contents($ipFile, json_encode(array_values($requests)));
     }
 
+    public function resendNotificationForToken(string $token): bool
+    {
+        $tokenData = self::peekToken(STORAGE_DIR, $token);
+        if (!$tokenData || empty($tokenData['zip'])) {
+            return false;
+        }
+
+        $storagePath = STORAGE_DIR . '/uploads/' . basename($tokenData['zip']);
+        if (!is_file($storagePath)) {
+            return false;
+        }
+
+        $zip = [
+            'id'        => $tokenData['id'] ?? 'unknown',
+            'addonName' => $tokenData['addonName'] ?? 'Addon',
+        ];
+
+        $name    = $tokenData['submitter_name'] ?? 'N/A';
+        $email   = $tokenData['submitter_email'] ?? '';
+        $message = $tokenData['submitter_message'] ?? '';
+
+        $this->sendNotificationPayload($zip, $storagePath, $token, $name, $email, $message);
+        return true;
+    }
+
     private function notifyAdmin(array $zip, string $storagePath, string $approvalToken): void
     {
         $name    = $_POST['name'] ?? 'N/A';
         $email   = $_POST['email'] ?? '';
         $message = $_POST['message'] ?? '';
 
+        $this->sendNotificationPayload($zip, $storagePath, $approvalToken, $name, $email, $message);
+    }
+
+    public function sendNotificationPayload(array $zip, string $storagePath, string $approvalToken, string $name, string $email, string $message): void
+    {
         $title      = 'New Neverball Addon Submission: ' . $zip['addonName'];
         $url        = BASE_URL . '/storage/uploads/' . basename($storagePath);
         $approveUrl = BASE_URL . '/?token=' . $approvalToken;

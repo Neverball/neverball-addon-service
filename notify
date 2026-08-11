@@ -1,0 +1,29 @@
+#!/usr/bin/env php
+<?php
+
+define('IN_APP', true);
+
+$baseDir = __DIR__;
+
+if (file_exists($baseDir . '/.env')) {
+    $lines = file($baseDir . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || strpos($line, '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $_ENV[trim($key)] = trim($value);
+        }
+    }
+}
+
+define('BASE_DIR', $baseDir);
+define('STORAGE_DIR', $baseDir . '/storage');
+define('BASE_URL', $_ENV['BASE_URL'] ?? 'https://addons.neverball.org');
+
+require_once $baseDir . '/vendor/autoload.php';
+require_once $baseDir . '/src/AddonTool.php';
+require_once $baseDir . '/src/NotifyCommand.php';
+
+$targetToken = $argv[1] ?? null;
+NotifyCommand::run($targetToken);
