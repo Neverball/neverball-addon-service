@@ -15,9 +15,12 @@ FROM dunglas/frankenphp:1.2-php8.3
 # Install PHP extensions and composer
 RUN install-php-extensions zip mbstring intl curl @composer
 
-# Configure PHP upload limits
-RUN echo "upload_max_filesize = 25M" > $PHP_INI_DIR/conf.d/uploads.ini \
- && echo "post_max_size = 25M" >> $PHP_INI_DIR/conf.d/uploads.ini
+# Configure PHP upload limits and error handling
+RUN echo "upload_max_filesize = 25M" > $PHP_INI_DIR/conf.d/custom.ini \
+ && echo "post_max_size = 25M" >> $PHP_INI_DIR/conf.d/custom.ini \
+ && echo "display_errors = Off" >> $PHP_INI_DIR/conf.d/custom.ini \
+ && echo "display_startup_errors = Off" >> $PHP_INI_DIR/conf.d/custom.ini \
+ && echo "log_errors = On" >> $PHP_INI_DIR/conf.d/custom.ini
 
 WORKDIR /app
 

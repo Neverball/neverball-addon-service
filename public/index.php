@@ -12,6 +12,7 @@ require_once BASE_DIR . '/vendor/autoload.php';
 
 define('BASE_URL', $_ENV['BASE_URL'] ?? 'https://addons.neverball.org');
 
+ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 ini_set('error_log', LOG_DIR . '/php_errors.log');
 
