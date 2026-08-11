@@ -87,11 +87,11 @@ class AddonTool
                 . "**Submitter Email:** $email\n"
                 . "**Addon:** " . $zip['addonName'] . " (`" . $zip['id'] . "`)\n\n"
                 . "**Message:**\n$message\n\n"
-                . '<a href="' . htmlspecialchars($url) . '" target="_blank" rel="noopener">📥 Download ZIP</a>' . "\n\n"
-                . '<a href="' . htmlspecialchars($approveUrl) . '" target="_blank" rel="noopener">✅ Approve Addon</a>';
+                . "[📥 Download ZIP]($url)\n\n"
+                . "[✅ Approve Addon]($approveUrl)";
 
             if (!empty($email)) {
-                $quotedMsg = implode("\n", array_map(fn($line) => '> ' . $line, explode("\n", trim($message))));
+                $quotedMsg    = implode("\n", array_map(fn($line) => '> ' . $line, explode("\n", trim($message))));
                 $replySubject = 'Re: Neverball Addon Submission: ' . $zip['addonName'];
                 $replyBody    = "Hi " . ($name ?: 'there') . ",\n\n"
                     . "Thank you for your submission of \"" . $zip['addonName'] . "\" (" . $zip['id'] . ").\n\n"
@@ -104,7 +104,7 @@ class AddonTool
                     . '?subject=' . rawurlencode($replySubject)
                     . '&body=' . rawurlencode($replyBody);
 
-                $gotifyMessage .= "\n\n" . '<a href="' . htmlspecialchars($mailtoUrl) . '" target="_blank" rel="noopener">✉️ Reply via Email</a>';
+                $gotifyMessage .= "\n\n[✉️ Reply via Email]($mailtoUrl)";
             }
 
             $this->sendGotifyNotification($gotifyUrl, $gotifyToken, $title, $gotifyMessage, $approveUrl);
