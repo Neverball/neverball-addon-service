@@ -4,6 +4,11 @@
     "nelexa/zip": "^4.0",
     "mindplay/php-vite": "^1.1"
   },
+  "autoload": {
+    "classmap": [
+      "src/"
+    ]
+  },
   "config": {
     "platform": {
       "php": "8.2.0"
