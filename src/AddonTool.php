@@ -40,9 +40,56 @@ class AddonTool
         $storagePath   = $this->storeZip($tmpPath, $zip['id']);
         $approvalToken = $this->generateApprovalToken($zip, $storagePath, $name, $email, $message);
 
+        $dispatchResult = $this->dispatchSubmissionToGitHub($zip, $storagePath, $name, $email, $message);
+        if (!$dispatchResult['ok']) {
+            $this->jsonError('Submission received, but failed to open GitHub Pull Request: ' . $dispatchResult['error']);
+        }
+
         $this->notifyAdmin($zip, $storagePath, $approvalToken);
 
-        $this->jsonSuccess(['message' => 'Submission received. Thank you!']);
+        $repo  = $_ENV['GITHUB_PACKAGES_REPO'] ?? 'Neverball/packages';
+        $prUrl = 'https://github.com/' . $repo . '/pulls';
+
+        $this->jsonSuccess([
+            'message' => 'Submission received! A GitHub Pull Request will soon be created for review.',
+            'pr_url'  => $prUrl,
+        ]);
+    }
+
+    private function dispatchSubmissionToGitHub(array $zip, string $storagePath, string $name, string $email, string $message): array
+    {
+        $repo = $_ENV['GITHUB_PACKAGES_REPO'] ?? null;
+        $pat  = $_ENV['GITHUB_DISPATCH_TOKEN'] ?? null;
+
+        if (!$repo || !$pat) {
+            self::logError("GitHub dispatch failed: GITHUB_PACKAGES_REPO or GITHUB_DISPATCH_TOKEN missing in environment.");
+            return ['ok' => false, 'error' => 'GitHub dispatch token or repository not configured on server.'];
+        }
+
+        $payload = [
+            'event_type'     => 'addon-submission',
+            'client_payload' => [
+                'zip_url'           => BASE_URL . '/storage/uploads/' . basename($storagePath),
+                'assets_url'        => BASE_URL . '/neverball-assets.json',
+                'addon_id'          => $zip['id'],
+                'addon_name'        => $zip['addonName'],
+                'submitter_name'    => $name,
+                'submitter_email'   => $email,
+                'submitter_message' => $message,
+                'submitted_at'      => gmdate('Y-m-d H:i:s \U\T\C'),
+            ],
+        ];
+
+        $result   = self::dispatchGitHubEvent($repo, $pat, $payload);
+        $httpCode = $result['code'];
+
+        if ($httpCode === 204) {
+            return ['ok' => true, 'error' => ''];
+        }
+
+        $errDetail = trim($result['response'] ?: $result['error'] ?: 'No response body');
+        self::logError("GitHub dispatch failed for repo '$repo' (HTTP $httpCode). Detail: $errDetail");
+        return ['ok' => false, 'error' => "GitHub API returned HTTP $httpCode."];
     }
 
     private function checkRateLimit(): void
@@ -118,7 +165,7 @@ class AddonTool
                 . "**Addon:** " . $zip['addonName'] . " (`" . $zip['id'] . "`)\n\n"
                 . "**Message:**\n$message\n\n"
                 . "[📥 Download ZIP]($url)\n\n"
-                . "[✅ Approve Addon]($approveUrl)";
+                . "[🔁 Retry GitHub PR Dispatch]($approveUrl)";
 
             if (!empty($email)) {
                 $quotedMsg    = implode("\n", array_map(fn($line) => '> ' . $line, explode("\n", trim($message))));
@@ -641,24 +688,24 @@ class AddonTool
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Addon Approval – Neverball</title>
+    <title>Addon Submission Retry – Neverball</title>
     <link rel="icon" href="/images/favicon-modern.svg">
     ' . $viteCss . '
 </head>
 <body class="min-h-screen bg-orange-50 text-gray-900 font-sans">
 <div class="max-w-2xl mx-auto px-4 py-12">
-    <h1 class="text-3xl font-bold text-orange-600 mb-6">Addon Approval</h1>';
+    <h1 class="text-3xl font-bold text-orange-600 mb-6">Retry GitHub PR Dispatch</h1>';
 
                 if ($data) {
                     echo '<div class="bg-white p-6 rounded-lg shadow-sm border border-orange-100">';
-                    echo '<p class="text-base text-gray-700 mb-6">Are you sure you want to approve the addon <strong>' . htmlspecialchars((string) ($data['addonName'] ?? 'Addon')) . '</strong>?</p>';
+                    echo '<p class="text-base text-gray-700 mb-6">Re-dispatch the submission for <strong>' . htmlspecialchars((string) ($data['addonName'] ?? 'Addon')) . '</strong> to trigger automated Pull Request creation on GitHub?</p>';
                     echo '<form method="POST" action="/?token=' . htmlspecialchars($token) . '">';
-                    echo '<button type="submit" class="px-6 py-3 rounded-md bg-orange-500 text-white text-base font-semibold hover:bg-orange-600 transition-colors">Approve Addon</button>';
+                    echo '<button type="submit" class="px-6 py-3 rounded-md bg-orange-500 text-white text-base font-semibold hover:bg-orange-600 transition-colors">Retry GitHub PR Dispatch</button>';
                     echo '</form>';
                     echo '</div>';
                 } else {
                     echo '<div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50" role="alert">';
-                    echo '<span class="font-medium">Error:</span> Invalid or expired approval link.';
+                    echo '<span class="font-medium">Error:</span> Invalid or expired token link.';
                     echo '</div>';
                 }
 
@@ -718,13 +765,13 @@ class AddonTool
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Addon Approval – Neverball</title>
+    <title>GitHub PR Re-dispatch – Neverball</title>
     <link rel="icon" href="/images/favicon-modern.svg">
     ' . $viteCss . '
 </head>
 <body class="min-h-screen bg-orange-50 text-gray-900 font-sans">
 <div class="max-w-2xl mx-auto px-4 py-12">
-    <h1 class="text-3xl font-bold text-orange-600 mb-6">Addon Approval</h1>';
+    <h1 class="text-3xl font-bold text-orange-600 mb-6">GitHub PR Re-dispatch</h1>';
 
                 if ($ok) {
                     echo '<div class="p-4 mb-4 text-sm text-green-800 rounded-lg bg-green-50" role="alert">';
@@ -1113,7 +1160,11 @@ AddonTool::handleRequest();
         }
 
         if (data.success) {
-            showStatus('Submitted!', false);
+            var msg = escapeHtml(data.message || 'Submission received!');
+            if (data.pr_url) {
+                msg += '<br><a href="' + escapeHtml(data.pr_url) + '" target="_blank" rel="noopener" class="inline-block mt-2 font-semibold text-orange-600 underline hover:text-orange-700">View GitHub Pull Requests &rarr;</a>';
+            }
+            showStatus(msg, false);
             submitBtn.style.display = 'none';
         } else {
             showStatus('Error: ' + escapeHtml(data.error || 'Unknown error'), true);
