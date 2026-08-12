@@ -842,11 +842,21 @@ AddonTool::handleRequest();
 <body class="min-h-screen bg-orange-50 text-gray-900 font-sans">
 <div class="max-w-2xl mx-auto px-4 py-12">
 
-    <h1 class="text-3xl font-bold text-orange-600 mb-2">Addon Tool</h1>
-    <p class="text-gray-500 mb-8 text-base leading-relaxed">
-        Check your Neverball level set for errors, then (optionally) submit it for inclusion
-        in the in-game downloads. Your submission will be reviewed before being accepted.
-    </p>
+    <h1 class="text-3xl font-bold text-orange-600 mb-3">Addon Tool</h1>
+
+    <div class="text-gray-600 mb-8 text-base leading-relaxed space-y-3">
+        <p>
+            Check your Neverball level set for errors directly in your browser, then (optionally) submit it for inclusion in the in-game downloads.
+        </p>
+        <ul class="list-disc pl-5 space-y-1.5">
+            <li>
+                <strong>Validation:</strong> Checks that your <code class="font-mono text-sm bg-orange-100 text-orange-800 px-1 rounded ring-1 ring-orange-200">.zip</code> file contains all required maps, textures, and models. Validation runs entirely inside your browser - nothing is uploaded to the server during this step.
+            </li>
+            <li>
+                <strong>Submission:</strong> Uploads validated level sets for inclusion in the game.
+            </li>
+        </ul>
+    </div>
 
     <noscript>
         <p class="text-orange-600 font-semibold mb-4">JavaScript is required to use this form.</p>
