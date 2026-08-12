@@ -10,8 +10,6 @@ services:
     environment:
       - SERVER_NAME=${SERVER_NAME:-addons.neverball.org}
       - BASE_URL=${BASE_URL:-https://addons.neverball.org}
-      - NOTIFY_EMAIL=${NOTIFY_EMAIL}
-      - NOTIFY_FROM=${NOTIFY_FROM}
       - GOTIFY_URL=${GOTIFY_URL:-http://gotify:80}
       - GOTIFY_TOKEN=${GOTIFY_TOKEN}
       - GOTIFY_PATH=${GOTIFY_PATH:-gotify}
