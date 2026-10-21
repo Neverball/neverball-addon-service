@@ -20,6 +20,7 @@ RUN echo "upload_max_filesize = 25M" > $PHP_INI_DIR/conf.d/custom.ini \
  && echo "post_max_size = 25M" >> $PHP_INI_DIR/conf.d/custom.ini \
  && echo "display_errors = Off" >> $PHP_INI_DIR/conf.d/custom.ini \
  && echo "display_startup_errors = Off" >> $PHP_INI_DIR/conf.d/custom.ini \
+ && echo "session.upload_progress.enabled = Off" >> $PHP_INI_DIR/conf.d/custom.ini \
  && echo "log_errors = On" >> $PHP_INI_DIR/conf.d/custom.ini
 
 WORKDIR /app
