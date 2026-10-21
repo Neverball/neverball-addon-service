@@ -10,7 +10,7 @@ COPY public/ public/
 RUN npm run build
 
 # Stage 2: Final FrankenPHP runtime image
-FROM dunglas/frankenphp:1.2-php8.3
+FROM dunglas/frankenphp:1-php8.3
 
 # Install PHP extensions and composer
 RUN install-php-extensions zip mbstring intl curl @composer
