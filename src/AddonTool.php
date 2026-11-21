@@ -388,7 +388,7 @@ class AddonTool
             $setFiles = [];
 
             foreach ($zipFile->getListFiles() as $name) {
-                if (preg_match('/^set-([a-zA-Z0-9_-]+)\.txt$/', $name, $m)) {
+                if (preg_match('/^set-([^\/\\\\]+)\.txt$/', $name, $m)) {
                     $setFiles[] = ['path' => $name, 'slug' => $m[1]];
                 }
             }
@@ -458,9 +458,10 @@ class AddonTool
         }
         self::safeChmod($this->uploadDir, 0755);
 
-        // Add a random 32-character hex suffix for security
+        // Sanitize ID for filesystem/URL safety and add a random 32-character hex suffix
+        $safeId       = trim((string) preg_replace('/[^a-zA-Z0-9_-]+/', '_', $id), '_') ?: 'addon';
         $randomSuffix = bin2hex(random_bytes(16));
-        $filename     = $id . '-' . $randomSuffix . '.zip';
+        $filename     = $safeId . '-' . $randomSuffix . '.zip';
         $dest         = $this->uploadDir . '/' . $filename;
 
         if (!copy($tmpPath, $dest)) {
