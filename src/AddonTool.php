@@ -871,6 +871,102 @@ AddonTool::handleRequest();
 <body class="min-h-screen bg-orange-50 text-gray-900 font-sans">
 <div class="max-w-2xl mx-auto px-4 py-12">
 
+    <div class="rounded-xl border border-orange-200 bg-white px-6 py-5 mb-6 shadow-sm">
+        <svg viewBox="0 0 460 112" fill="none" xmlns="http://www.w3.org/2000/svg"
+             class="w-full max-w-md h-auto mx-auto block" aria-hidden="true">
+            <defs>
+                <!-- Neverball icon defs (namespaced from public/favicon-modern.svg) -->
+                <linearGradient id="nb-c">
+                    <stop offset="0" stop-color="#fff"/>
+                    <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+                </linearGradient>
+                <linearGradient id="nb-b">
+                    <stop offset="0" stop-color="#fff"/>
+                    <stop offset="1" stop-color="#bcc4d3"/>
+                </linearGradient>
+                <linearGradient id="nb-a">
+                    <stop offset="0" stop-color="#4c566a"/>
+                    <stop offset="1" stop-color="#2d333f"/>
+                </linearGradient>
+                <linearGradient id="nb-j" x1="24" x2="24" y1="40" y2="26" gradientUnits="userSpaceOnUse" href="#nb-c"/>
+                <filter id="nb-d" width="1.246" height="1.878" x="-.123" y="-.439" color-interpolation-filters="sRGB">
+                    <feGaussianBlur stdDeviation="1.28"/>
+                </filter>
+                <filter id="nb-f" width="2.008" height="2.008" x="-.504" y="-.504" color-interpolation-filters="sRGB">
+                    <feGaussianBlur stdDeviation="2.52"/>
+                </filter>
+                <filter id="nb-i" width="1.221" height="1.414" x="-.11" y="-.207" color-interpolation-filters="sRGB">
+                    <feGaussianBlur stdDeviation="1.655"/>
+                </filter>
+                <filter id="nb-k" width="1.331" height="1.53" x="-.166" y="-.265" color-interpolation-filters="sRGB">
+                    <feGaussianBlur stdDeviation="1.657"/>
+                </filter>
+                <radialGradient id="nb-e" cx="24.008" cy="13.689" r="20" fx="24.008" fy="13.689"
+                                gradientTransform="matrix(1.53 -.0053 .00539 1.55762 -12.806 -7.995)"
+                                gradientUnits="userSpaceOnUse" href="#nb-a"/>
+                <radialGradient id="nb-g" cx="24.008" cy="13.689" r="20" fx="24.008" fy="13.689"
+                                gradientTransform="matrix(1.53 -.0053 .00539 1.55762 -12.806 -7.995)"
+                                gradientUnits="userSpaceOnUse" href="#nb-b"/>
+                <clipPath id="nb-h" clipPathUnits="userSpaceOnUse">
+                    <circle cx="24" cy="24" r="18" fill="#5e81ac" fill-rule="evenodd"/>
+                </clipPath>
+                <linearGradient id="nb-arrow-grad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stop-color="#fdba74"/>
+                    <stop offset="100%" stop-color="#ea580c"/>
+                </linearGradient>
+            </defs>
+
+            <!-- Step 1: Open cardboard parcel box -->
+            <g transform="translate(28, 16)">
+                <ellipse cx="36" cy="74" rx="26" ry="5" fill="#9a3412" opacity="0.14"/>
+                <!-- Interior -->
+                <path d="M14 26 L36 16 L58 26 L36 36 Z" fill="#92400e"/>
+                <!-- Open back flaps -->
+                <path d="M14 26 L8 15 L30 6 L36 16 Z" fill="#f3c68f" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M58 26 L64 15 L42 6 L36 16 Z" fill="#e6b170" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <!-- Front walls -->
+                <path d="M14 26 L36 36 L36 66 L14 56 Z" fill="#d99b52" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M36 36 L58 26 L58 56 L36 66 Z" fill="#b97732" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <!-- Front flaps folded down -->
+                <path d="M14 26 L36 36 L30 46 L8 36 Z" fill="#f3c68f" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M58 26 L36 36 L42 46 L64 36 Z" fill="#e6b170" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+            </g>
+
+            <!-- Tapered Arrow 1 -->
+            <path d="M116 53 L152 53 L152 46 L168 56 L152 66 L152 59 L116 59 Z" fill="url(#nb-arrow-grad)"/>
+
+            <!-- Step 2: Sealed cardboard box with checkmark seal over it -->
+            <g transform="translate(194, 18)">
+                <ellipse cx="36" cy="72" rx="26" ry="5" fill="#9a3412" opacity="0.14"/>
+                <path d="M36 12 L60 23 L36 34 L12 23 Z" fill="#f3c68f" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M12 23 L36 34 L36 64 L12 53 Z" fill="#d99b52" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M36 34 L60 23 L60 53 L36 64 Z" fill="#b97732" stroke="#78350f" stroke-width="1.75" stroke-linejoin="round"/>
+                <path d="M24 17.5 L48 28.5 L42 31.25 L18 20.25 Z" fill="#fef3c7" opacity="0.9"/>
+                <!-- Checkmark badge over box -->
+                <circle cx="36" cy="40" r="17" fill="#10b981" stroke="#ffffff" stroke-width="3"/>
+                <polyline points="27.5,40.5 33.5,46.5 45.5,33.5" fill="none" stroke="#ffffff" stroke-width="3.25" stroke-linecap="round" stroke-linejoin="round"/>
+            </g>
+
+            <!-- Tapered Arrow 2 -->
+            <path d="M292 53 L328 53 L328 46 L344 56 L328 66 L328 59 L292 59 Z" fill="url(#nb-arrow-grad)"/>
+
+            <!-- Step 3: Neverball icon with matching blob shadow -->
+            <ellipse cx="396" cy="90" rx="26" ry="5" fill="#9a3412" opacity="0.14"/>
+            <svg x="356" y="16" width="80" height="80" viewBox="0 0 48 48">
+                <g fill-rule="evenodd">
+                    <rect width="24" height="7" x="12" y="36" filter="url(#nb-d)" opacity=".35" rx="12" ry="3.5"/>
+                    <path fill="url(#nb-e)" d="m24 6-13.426 8.993L6 24c0 9.972 8.028 18 18 18l18-18c0-9.972-8.028-18-18-18Z"/>
+                    <rect width="12" height="12" x="18" y="12" fill="#4c566a" filter="url(#nb-f)" ry="6"/>
+                    <path fill="url(#nb-g)" d="M24 6C14.028 6 6 14.028 6 24c0 0 3.6-6 18-6Zm0 12v24c9.972 0 18-8.028 18-18 0 0-3.6-6-18-6z"/>
+                    <path d="M41.959 22.828C41.517 32.428 33.611 39.988 24 40c-9.485-.001-17.341-7.363-17.959-16.828A18 18 0 0 0 6 24c0 9.941 8.059 19.193 18 19.193S42 33.941 42 24c0-.391-.015-.782-.041-1.172z"
+                          clip-path="url(#nb-h)" filter="url(#nb-i)" opacity=".3"/>
+                    <rect width="24" height="15" x="12" y="24" fill="url(#nb-j)" filter="url(#nb-k)" opacity=".3"
+                          paint-order="stroke fill markers" rx="12" ry="7.434"/>
+                </g>
+            </svg>
+        </svg>
+    </div>
+
     <h1 class="text-3xl font-bold text-orange-600 mb-3">Addon Tool</h1>
 
     <div class="text-gray-600 mb-8 text-base leading-relaxed space-y-3">
