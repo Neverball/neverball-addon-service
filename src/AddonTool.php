@@ -24,6 +24,7 @@ class AddonTool
     {
         header('Content-Type: application/json');
 
+        $this->checkCsrf();
         $this->checkAntispam();
         $this->checkRateLimit();
         $this->validateEmail();
@@ -246,19 +247,44 @@ class AddonTool
 
 
     // -------------------------------------------------------------------------
-    // Antispam
+    // CSRF & Antispam
     // -------------------------------------------------------------------------
+
+    private static function ensureSession(): void
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_set_cookie_params([
+                'httponly' => true,
+                'samesite' => 'Lax',
+                'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
+            ]);
+            session_start();
+        }
+    }
+
+    public static function getCsrfToken(): string
+    {
+        self::ensureSession();
+        if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['csrf_token'];
+    }
+
+    private function checkCsrf(): void
+    {
+        self::ensureSession();
+        $expected  = $_SESSION['csrf_token'] ?? '';
+        $submitted = $_POST['csrf_token'] ?? '';
+        if (!is_string($expected) || !is_string($submitted) || $expected === '' || !hash_equals($expected, $submitted)) {
+            $this->jsonError('Invalid or expired session token. Please reload the page and try again.');
+        }
+    }
 
     private function checkAntispam(): void
     {
         // Honeypot: hidden text field must be empty
         if (!empty($_POST['website'])) {
-            $this->jsonSuccess([]);
-        }
-
-        // Time check: form must have been loaded at least 4 seconds ago
-        $loaded = (int) ($_POST['form_loaded_at'] ?? 0);
-        if ($loaded === 0 || (time() - $loaded) < 4) {
             $this->jsonSuccess([]);
         }
     }
@@ -820,6 +846,8 @@ class AddonTool
             }
             exit;
         }
+
+        self::getCsrfToken();
     }
 }
 
@@ -867,7 +895,8 @@ AddonTool::handleRequest();
 
         <input type="text" name="website" id="website"
                style="display:none" tabindex="-1" aria-hidden="true" autocomplete="off">
-        <input type="hidden" name="form_loaded_at" id="form_loaded_at">
+        <input type="hidden" name="csrf_token" id="csrf_token"
+               value="<?= htmlspecialchars(AddonTool::getCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
 
         <!-- Step 1: ZIP upload -->
         <div id="upload-section">
@@ -970,8 +999,6 @@ AddonTool::handleRequest();
 <script>
 (function () {
     'use strict';
-
-    document.getElementById('form_loaded_at').value = Math.floor(Date.now() / 1000);
 
     const fileInput    = document.getElementById('zip-file');
     const result       = document.getElementById('validation-result');
@@ -1154,12 +1181,12 @@ AddonTool::handleRequest();
         showStatus('Submitting…', false);
 
         var fd = new FormData();
-        fd.append('zip',            fileInput.files[0]);
-        fd.append('form_loaded_at', document.getElementById('form_loaded_at').value);
-        fd.append('website',        '');
-        fd.append('name',           document.getElementById('submitter-name').value);
-        fd.append('email',          document.getElementById('submitter-email').value);
-        fd.append('message',        document.getElementById('submit-message').value);
+        fd.append('zip',        fileInput.files[0]);
+        fd.append('csrf_token', document.getElementById('csrf_token').value);
+        fd.append('website',    '');
+        fd.append('name',       document.getElementById('submitter-name').value);
+        fd.append('email',      document.getElementById('submitter-email').value);
+        fd.append('message',    document.getElementById('submit-message').value);
 
         try {
             var res  = await fetch('/', { method: 'POST', body: fd });
