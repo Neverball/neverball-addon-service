@@ -10,6 +10,9 @@ services:
     environment:
       - SERVER_NAME=${SERVER_NAME:-addons.neverball.org}
       - BASE_URL=${BASE_URL:-https://addons.neverball.org}
+      - FRAME_ANCESTORS=${FRAME_ANCESTORS:-https://neverball.org https://*.neverball.org}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-}
+      - CSRF_SECRET=${CSRF_SECRET:-}
       - GOTIFY_URL=${GOTIFY_URL:-http://gotify:80}
       - GOTIFY_TOKEN=${GOTIFY_TOKEN}
       - GOTIFY_PATH=${GOTIFY_PATH:-gotify}

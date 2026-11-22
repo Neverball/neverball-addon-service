@@ -7,6 +7,8 @@
 	root * /app/public
 	encode gzip zstd
 
+	header Content-Security-Policy "frame-ancestors 'self' {$FRAME_ANCESTORS:https://neverball.org https://*.neverball.org};"
+
 	request_body {
 		max_size 25MB
 	}
