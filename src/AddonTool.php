@@ -8,6 +8,7 @@ class AddonTool
 {
     private const MAX_ZIP_SIZE = 20 * 1024 * 1024; // 20 MB
     private const MAX_FILE_COUNT = 4096;
+    private const CSRF_TTL = 43200; // 12 hours
 
     private string $uploadDir;
 
@@ -250,33 +251,110 @@ class AddonTool
     // CSRF & Antispam
     // -------------------------------------------------------------------------
 
-    private static function ensureSession(): void
+    private static function getCsrfSecret(): string
     {
-        if (session_status() === PHP_SESSION_NONE) {
-            session_set_cookie_params([
-                'httponly' => true,
-                'samesite' => 'Lax',
-                'secure'   => (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
-            ]);
-            session_start();
+        $envSecret = $_ENV['CSRF_SECRET'] ?? '';
+        if (is_string($envSecret) && $envSecret !== '') {
+            return $envSecret;
         }
+
+        $keyFile = STORAGE_DIR . '/csrf.key';
+        if (is_file($keyFile)) {
+            $stored = trim((string) @file_get_contents($keyFile));
+            if ($stored !== '') {
+                return $stored;
+            }
+        }
+
+        if (!is_dir(STORAGE_DIR)) {
+            @mkdir(STORAGE_DIR, 0755, true);
+        }
+        $secret = bin2hex(random_bytes(32));
+        @file_put_contents($keyFile, $secret, LOCK_EX);
+        self::safeChmod($keyFile, 0600);
+        return $secret;
     }
 
     public static function getCsrfToken(): string
     {
-        self::ensureSession();
-        if (empty($_SESSION['csrf_token']) || !is_string($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        $ts      = (string) time();
+        $nonce   = bin2hex(random_bytes(16));
+        $payload = $ts . '.' . $nonce;
+        $sig     = hash_hmac('sha256', $payload, self::getCsrfSecret());
+        return $payload . '.' . $sig;
+    }
+
+    private static function normalizeOrigin(string $url): string
+    {
+        $parts = parse_url(trim($url));
+        if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            return '';
         }
-        return $_SESSION['csrf_token'];
+        $origin = strtolower($parts['scheme']) . '://' . strtolower($parts['host']);
+        if (!empty($parts['port'])) {
+            $origin .= ':' . (int) $parts['port'];
+        }
+        return $origin;
+    }
+
+    private function verifyOrigin(): bool
+    {
+        $allowed = [];
+        $baseOrigin = self::normalizeOrigin(BASE_URL);
+        if ($baseOrigin !== '') {
+            $allowed[] = $baseOrigin;
+        }
+        $extra = $_ENV['ALLOWED_ORIGINS'] ?? '';
+        if (is_string($extra) && $extra !== '') {
+            foreach (explode(',', $extra) as $item) {
+                $norm = self::normalizeOrigin($item);
+                if ($norm !== '') {
+                    $allowed[] = $norm;
+                }
+            }
+        }
+        $allowed = array_values(array_unique($allowed));
+        if ($allowed === []) {
+            return false;
+        }
+
+        $header = $_SERVER['HTTP_ORIGIN'] ?? '';
+        if ($header === '' && !empty($_SERVER['HTTP_REFERER'])) {
+            $header = $_SERVER['HTTP_REFERER'];
+        }
+        $requestOrigin = self::normalizeOrigin((string) $header);
+        return $requestOrigin !== '' && in_array($requestOrigin, $allowed, true);
     }
 
     private function checkCsrf(): void
     {
-        self::ensureSession();
-        $expected  = $_SESSION['csrf_token'] ?? '';
+        if (!$this->verifyOrigin()) {
+            $this->jsonError('Invalid or expired session token. Please reload the page and try again.');
+        }
+
         $submitted = $_POST['csrf_token'] ?? '';
-        if (!is_string($expected) || !is_string($submitted) || $expected === '' || !hash_equals($expected, $submitted)) {
+        if (!is_string($submitted) || $submitted === '') {
+            $this->jsonError('Invalid or expired session token. Please reload the page and try again.');
+        }
+
+        $parts = explode('.', $submitted, 3);
+        if (count($parts) !== 3) {
+            $this->jsonError('Invalid or expired session token. Please reload the page and try again.');
+        }
+
+        [$ts, $nonce, $sig] = $parts;
+        if (!ctype_digit($ts) || $nonce === '' || $sig === '') {
+            $this->jsonError('Invalid or expired session token. Please reload the page and try again.');
+        }
+
+        $now = time();
+        $issuedAt = (int) $ts;
+        if ($issuedAt > $now + 60 || ($now - $issuedAt) > self::CSRF_TTL) {
+            $this->jsonError('Invalid or expired session token. Please reload the page and try again.');
+        }
+
+        $expected = hash_hmac('sha256', $ts . '.' . $nonce, self::getCsrfSecret());
+        if (!hash_equals($expected, $sig)) {
             $this->jsonError('Invalid or expired session token. Please reload the page and try again.');
         }
     }
@@ -857,6 +935,8 @@ if (PHP_SAPI === 'cli') {
 
 AddonTool::handleRequest();
 
+$isEmbed = (($_GET['embed'] ?? '') === '1');
+
 // GET: render the page
 ?>
 <!DOCTYPE html>
@@ -868,10 +948,10 @@ AddonTool::handleRequest();
     <link rel="icon" href="/images/favicon-modern.svg">
     <?= $GLOBALS['vite']->createTags('resources/js/addon-tool.js')->css ?>
 </head>
-<body class="min-h-screen bg-orange-50 text-gray-900 font-sans">
-<div class="max-w-2xl mx-auto px-4 py-12">
+<body class="<?= $isEmbed ? 'bg-transparent text-gray-100 font-sans' : 'min-h-screen bg-orange-50 text-gray-900 font-sans' ?>">
+<div class="<?= $isEmbed ? 'max-w-full mx-auto py-1' : 'max-w-2xl mx-auto px-4 py-12' ?>">
 
-    <div class="rounded-xl border border-orange-200 bg-white px-6 py-5 mb-6 shadow-sm">
+    <div class="<?= $isEmbed ? 'rounded-xl border border-white/15 bg-black/30 px-6 py-4 mb-5' : 'rounded-xl border border-orange-200 bg-white px-6 py-5 mb-6 shadow-sm' ?>">
         <svg viewBox="0 0 460 112" fill="none" xmlns="http://www.w3.org/2000/svg"
              class="w-full max-w-md h-auto mx-auto block" aria-hidden="true">
             <defs>
@@ -967,15 +1047,17 @@ AddonTool::handleRequest();
         </svg>
     </div>
 
+    <?php if (!$isEmbed): ?>
     <h1 class="text-3xl font-bold text-orange-600 mb-3">Addon Tool</h1>
+    <?php endif; ?>
 
-    <div class="text-gray-600 mb-8 text-base leading-relaxed space-y-3">
+    <div class="<?= $isEmbed ? 'text-gray-200 mb-6 text-base leading-relaxed space-y-3' : 'text-gray-600 mb-8 text-base leading-relaxed space-y-3' ?>">
         <p>
             Check your Neverball level set for errors directly in your browser, then (optionally) submit it for inclusion in the in-game downloads.
         </p>
         <ul class="list-disc pl-5 space-y-1.5">
             <li>
-                <strong>Validation:</strong> Checks that your <code class="font-mono text-sm bg-orange-100 text-orange-800 px-1 rounded ring-1 ring-orange-200">.zip</code> file contains all required maps, textures, and models. Validation runs entirely inside your browser - nothing is uploaded to the server during this step.
+                <strong>Validation:</strong> Checks that your <code class="<?= $isEmbed ? 'font-mono text-sm bg-black/40 text-amber-300 px-1.5 py-0.5 rounded ring-1 ring-white/15' : 'font-mono text-sm bg-orange-100 text-orange-800 px-1 rounded ring-1 ring-orange-200' ?>">.zip</code> file contains all required maps, textures, and models. Validation runs entirely inside your browser - nothing is uploaded to the server during this step.
             </li>
             <li>
                 <strong>Submission:</strong> Uploads validated level sets for inclusion in the game.
@@ -984,7 +1066,7 @@ AddonTool::handleRequest();
     </div>
 
     <noscript>
-        <p class="text-orange-600 font-semibold mb-4">JavaScript is required to use this form.</p>
+        <p class="<?= $isEmbed ? 'text-amber-400' : 'text-orange-600' ?> font-semibold mb-4">JavaScript is required to use this form.</p>
     </noscript>
 
     <form id="submit-form" novalidate class="flex flex-col gap-6">
@@ -998,43 +1080,43 @@ AddonTool::handleRequest();
         <div id="upload-section">
             <label for="zip-file" class="block text-base font-semibold mb-2">ZIP file</label>
             <input type="file" id="zip-file" name="zip" accept=".zip" required autocomplete="off"
-                   class="block text-base text-gray-500 cursor-pointer
-                          file:mr-4 file:py-2.5 file:px-5 file:rounded-md file:border-0
-                          file:text-base file:font-semibold
-                          file:bg-orange-500 file:text-white hover:file:bg-orange-600">
+                   class="<?= $isEmbed
+                       ? 'block text-base text-gray-300 cursor-pointer file:mr-4 file:py-2.5 file:px-5 file:rounded-md file:border-0 file:text-base file:font-semibold file:bg-amber-500 file:text-gray-950 hover:file:bg-amber-400'
+                       : 'block text-base text-gray-500 cursor-pointer file:mr-4 file:py-2.5 file:px-5 file:rounded-md file:border-0 file:text-base file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600' ?>">
         </div>
 
         <!-- Step 2: Validation result (shown by JS) -->
         <div id="validation-result" style="display:none"
-             class="rounded-xl border border-orange-200 bg-white p-5 flex flex-col gap-4 shadow-sm">
+             class="<?= $isEmbed ? 'rounded-xl border border-white/15 bg-black/30 p-5 flex flex-col gap-4' : 'rounded-xl border border-orange-200 bg-white p-5 flex flex-col gap-4 shadow-sm' ?>">
 
             <div id="validation-errors" style="display:none">
-                <p class="text-base font-semibold text-red-600 mb-2">
+                <p class="text-base font-semibold <?= $isEmbed ? 'text-red-400' : 'text-red-600' ?> mb-2">
                     Validation failed. Fix the errors below and try again:
                 </p>
-                <div id="error-list" class="text-base text-gray-700"></div>
+                <div id="error-list" class="text-base <?= $isEmbed ? 'text-gray-200' : 'text-gray-700' ?>"></div>
             </div>
 
             <div id="validation-pass" style="display:none" class="flex flex-col gap-4">
-                <p class="text-base font-semibold text-emerald-600 text-center uppercase tracking-wide">
+                <p class="text-base font-semibold <?= $isEmbed ? 'text-emerald-400' : 'text-emerald-600' ?> text-center uppercase tracking-wide">
                     Validation passed
                 </p>
                 <dl id="addon-meta" class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-base"></dl>
                 <div>
                     <p class="text-base font-semibold mb-1">Files included</p>
                     <ul id="file-list"
-                        class="font-mono text-sm bg-orange-50 border border-orange-200
-                               rounded p-3 max-h-48 overflow-y-auto list-none"></ul>
+                        class="<?= $isEmbed
+                            ? 'font-mono text-sm bg-black/40 border border-white/15 text-gray-200 rounded p-3 max-h-48 overflow-y-auto list-none'
+                            : 'font-mono text-sm bg-orange-50 border border-orange-200 rounded p-3 max-h-48 overflow-y-auto list-none' ?>"></ul>
                 </div>
             </div>
         </div>
 
         <!-- Step 3: Submission form (shown by JS after validation passes) -->
         <div id="submission-section" style="display:none"
-             class="rounded-xl border border-orange-200 bg-white p-5 flex flex-col gap-4 shadow-sm">
+             class="<?= $isEmbed ? 'rounded-xl border border-white/15 bg-black/30 p-5 flex flex-col gap-4' : 'rounded-xl border border-orange-200 bg-white p-5 flex flex-col gap-4 shadow-sm' ?>">
 
-            <h2 class="text-lg font-semibold text-gray-900">Submit for Inclusion</h2>
-            <p class="text-base text-gray-500">
+            <h2 class="text-lg font-semibold <?= $isEmbed ? 'text-amber-400' : 'text-gray-900' ?>">Submit for Inclusion</h2>
+            <p class="text-base <?= $isEmbed ? 'text-gray-300' : 'text-gray-500' ?>">
                 Provide your details below. Your addon will be reviewed before
                 being added to the in-game addons repository.
             </p>
@@ -1042,42 +1124,45 @@ AddonTool::handleRequest();
             <div class="flex flex-col gap-1">
                 <label for="submitter-name" class="text-base font-semibold">Your name</label>
                 <input type="text" id="submitter-name" name="name" required
-                       class="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-4 py-3 text-base
-                              focus:outline-none focus:ring-2 focus:ring-orange-500">
+                       class="<?= $isEmbed
+                           ? 'w-full rounded-md border border-white/25 bg-white/10 text-white placeholder-gray-300 px-4 py-3 text-base hover:border-white/40 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/50'
+                           : 'w-full rounded-md border border-gray-300 bg-white text-gray-900 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500' ?>">
             </div>
 
             <div class="flex flex-col gap-1">
                 <label for="submitter-email" class="text-base font-semibold">Email</label>
                 <input type="email" id="submitter-email" name="email" required
-                       class="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-4 py-3 text-base
-                              focus:outline-none focus:ring-2 focus:ring-orange-500">
+                       class="<?= $isEmbed
+                           ? 'w-full rounded-md border border-white/25 bg-white/10 text-white placeholder-gray-300 px-4 py-3 text-base hover:border-white/40 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/50'
+                           : 'w-full rounded-md border border-gray-300 bg-white text-gray-900 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500' ?>">
             </div>
 
             <div class="flex flex-col gap-1">
                 <label for="submit-message" class="text-base font-semibold">Message</label>
                 <textarea id="submit-message" name="message" rows="5" required
-                          class="w-full rounded-md border border-gray-300 bg-white text-gray-900 px-4 py-3 text-base
-                                 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y"></textarea>
+                          class="<?= $isEmbed
+                              ? 'w-full rounded-md border border-white/25 bg-white/10 text-white placeholder-gray-300 px-4 py-3 text-base hover:border-white/40 focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/50 resize-y'
+                              : 'w-full rounded-md border border-gray-300 bg-white text-gray-900 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-orange-500 resize-y' ?>"></textarea>
             </div>
 
             <div class="flex items-start gap-3">
                 <input type="checkbox" id="auth-confirm" required
-                       class="mt-1 h-5 w-5 accent-orange-500 cursor-pointer flex-shrink-0">
-                <label for="auth-confirm" class="text-base text-gray-500 cursor-pointer leading-relaxed">
+                       class="mt-1 h-5 w-5 <?= $isEmbed ? 'accent-amber-500' : 'accent-orange-500' ?> cursor-pointer flex-shrink-0">
+                <label for="auth-confirm" class="text-base <?= $isEmbed ? 'text-gray-300' : 'text-gray-500' ?> cursor-pointer leading-relaxed">
                     I certify that I am the author of this addon or that I have the
                     explicit permission of the original authors to submit this version.
                 </label>
             </div>
 
-            <p class="text-sm text-gray-500 italic leading-relaxed">
+            <p class="text-sm <?= $isEmbed ? 'text-gray-400' : 'text-gray-500' ?> italic leading-relaxed">
                 Note: Your name and message will be included in the publicly visible commit history when your addon is approved.
             </p>
 
             <div>
                 <button type="submit" id="submit-btn" disabled
-                        class="px-6 py-3 rounded-md bg-orange-500 text-white text-base
-                               font-semibold hover:bg-orange-600 transition-colors
-                               disabled:opacity-40 disabled:cursor-not-allowed">
+                        class="<?= $isEmbed
+                            ? 'px-6 py-3 rounded-md bg-amber-500 text-gray-950 text-base font-semibold hover:bg-amber-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+                            : 'px-6 py-3 rounded-md bg-orange-500 text-white text-base font-semibold hover:bg-orange-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed' ?>">
                     Submit for Inclusion
                 </button>
             </div>
@@ -1085,7 +1170,9 @@ AddonTool::handleRequest();
 
         <!-- Step 4: Status message (shown by JS) -->
         <div id="submit-status" style="display:none"
-             class="text-base px-4 py-3 rounded-md bg-white border border-orange-200 shadow-sm">
+             class="<?= $isEmbed
+                 ? 'text-base px-4 py-3 rounded-md bg-black/30 border border-white/15 text-gray-100'
+                 : 'text-base px-4 py-3 rounded-md bg-white border border-orange-200 shadow-sm' ?>">
         </div>
 
     </form>
@@ -1096,6 +1183,7 @@ AddonTool::handleRequest();
 (function () {
     'use strict';
 
+    const isEmbed      = <?= $isEmbed ? 'true' : 'false' ?>;
     const fileInput    = document.getElementById('zip-file');
     const result       = document.getElementById('validation-result');
     const errorsBox    = document.getElementById('validation-errors');
@@ -1131,7 +1219,9 @@ AddonTool::handleRequest();
 
         function makeCode(text) {
             var el = document.createElement('code');
-            el.className = 'font-mono bg-orange-100 text-orange-800 px-1 rounded text-xs ring-1 ring-orange-200';
+            el.className = isEmbed
+                ? 'font-mono bg-black/40 text-amber-300 px-1 rounded text-xs ring-1 ring-white/15'
+                : 'font-mono bg-orange-100 text-orange-800 px-1 rounded text-xs ring-1 ring-orange-200';
             el.textContent = text;
             return el;
         }
@@ -1145,7 +1235,7 @@ AddonTool::handleRequest();
                 li.textContent = e.message || JSON.stringify(e);
                 if (e.found !== undefined) {
                     var found = document.createElement('div');
-                    found.className = 'mt-1 text-gray-500';
+                    found.className = isEmbed ? 'mt-1 text-gray-400' : 'mt-1 text-gray-500';
                     found.textContent = e.found.length
                         ? 'Found at root: ' + e.found.join(', ') + (e.foundMore ? '…' : '')
                         : 'Nothing found at root — the ZIP may have a top-level folder.';
@@ -1225,10 +1315,10 @@ AddonTool::handleRequest();
             ].forEach(function (pair) {
                 if (!pair[1]) return;
                 var dt = document.createElement('dt');
-                dt.className = 'font-semibold text-gray-700';
+                dt.className = isEmbed ? 'font-semibold text-gray-200' : 'font-semibold text-gray-700';
                 dt.textContent = pair[0];
                 var dd = document.createElement('dd');
-                dd.className = 'text-gray-500';
+                dd.className = isEmbed ? 'text-gray-300' : 'text-gray-500';
                 if (pair[0] === 'Description') {
                     dd.innerHTML = escapeHtml(pair[1]).replace(/\\/g, '<br>');
                 } else {
@@ -1243,7 +1333,7 @@ AddonTool::handleRequest();
     function showStatus(html, isError) {
         statusBox.style.display = '';
         statusBox.innerHTML = html;
-        statusBox.style.color = isError ? '#dc2626' : '';
+        statusBox.style.color = isError ? (isEmbed ? '#f87171' : '#dc2626') : '';
     }
 
     fileInput.addEventListener('change', async function () {
@@ -1296,7 +1386,10 @@ AddonTool::handleRequest();
         if (data.success) {
             var msg = escapeHtml(data.message || 'Submission received!');
             if (data.pr_url) {
-                msg += '<br><a href="' + escapeHtml(data.pr_url) + '" target="_blank" rel="noopener" class="inline-block mt-2 font-semibold text-orange-600 underline hover:text-orange-700">View GitHub Pull Requests &rarr;</a>';
+                var linkClass = isEmbed
+                    ? 'inline-block mt-2 font-semibold text-amber-400 underline hover:text-amber-300'
+                    : 'inline-block mt-2 font-semibold text-orange-600 underline hover:text-orange-700';
+                msg += '<br><a href="' + escapeHtml(data.pr_url) + '" target="_blank" rel="noopener" class="' + linkClass + '">View GitHub Pull Requests &rarr;</a>';
             }
             showStatus(msg, false);
             submitBtn.style.display = 'none';
@@ -1305,6 +1398,22 @@ AddonTool::handleRequest();
             submitBtn.disabled = false;
         }
     });
+
+    if (isEmbed && window.parent !== window) {
+        var lastPostedHeight = 0;
+        function postEmbedHeight() {
+            var h = Math.ceil(document.body.getBoundingClientRect().height);
+            if (h > 0 && h !== lastPostedHeight) {
+                lastPostedHeight = h;
+                window.parent.postMessage({ type: 'neverball-addon-resize', height: h }, '*');
+            }
+        }
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(postEmbedHeight).observe(document.body);
+        }
+        window.addEventListener('load', postEmbedHeight);
+        postEmbedHeight();
+    }
 
     function escapeHtml(str) {
         return String(str)

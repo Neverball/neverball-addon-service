@@ -75,8 +75,9 @@ final class AddonToolTest extends TestCase
     public function testHttpCsrfAndSpacesInSetFilename(): void
     {
         $port = 18923;
+        $baseUrl = "http://127.0.0.1:$port";
         $docRoot = self::$baseDir . '/public';
-        $cmd = sprintf('php -S 127.0.0.1:%d -t %s', $port, escapeshellarg($docRoot));
+        $cmd = sprintf('BASE_URL=%s php -d variables_order=EGPCS -S 127.0.0.1:%d -t %s', escapeshellarg($baseUrl), $port, escapeshellarg($docRoot));
         $proc = proc_open($cmd, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, self::$baseDir);
         $this->assertIsResource($proc);
 
@@ -89,57 +90,82 @@ final class AddonToolTest extends TestCase
         $beforeTokens  = glob(self::$baseDir . '/storage/tokens/*') ?: [];
 
         try {
-            $baseUrl = "http://127.0.0.1:$port/";
-            $getRes = $this->httpRequest($baseUrl);
+            $getRes = $this->httpRequest($baseUrl . '/');
             $this->assertSame(200, $getRes['code']);
-
-            $sessionCookie = '';
-            foreach ($getRes['headers']['set-cookie'] ?? [] as $sc) {
-                if (preg_match('/(PHPSESSID=[^;]+)/', $sc, $m)) {
-                    $sessionCookie = $m[1];
-                    break;
-                }
-            }
-            $this->assertNotSame('', $sessionCookie);
+            $this->assertEmpty($getRes['headers']['set-cookie'] ?? []);
 
             $csrfToken = '';
             if (preg_match('/name="csrf_token"[^>]*value="([^"]+)"/', $getRes['body'], $m)) {
                 $csrfToken = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
             }
             $this->assertNotSame('', $csrfToken);
+            $this->assertCount(3, explode('.', $csrfToken));
+
+            // Embed mode renders dark transparent layout and resize postMessage script
+            $embedRes = $this->httpRequest($baseUrl . '/?embed=1');
+            $this->assertSame(200, $embedRes['code']);
+            $this->assertStringContainsString('bg-transparent', $embedRes['body']);
+            $this->assertStringContainsString('neverball-addon-resize', $embedRes['body']);
+
+            $originHeader = ['Origin: ' . $baseUrl];
 
             // Missing CSRF token should fail explicitly
-            $noCsrfRes = $this->httpRequest($baseUrl, 'POST', [
+            $noCsrfRes = $this->httpRequest($baseUrl . '/', 'POST', [
                 'website' => '',
                 'name'    => 'Tester',
                 'email'   => 'tester@example.com',
                 'message' => 'Test message',
                 'zip'     => new CURLFile($zipPath, 'application/zip', 'test.zip'),
-            ], $sessionCookie);
+            ], $originHeader);
             $noCsrfJson = json_decode($noCsrfRes['body'], true);
             $this->assertFalse($noCsrfJson['success'] ?? null);
 
             // Invalid CSRF token should fail explicitly
-            $badCsrfRes = $this->httpRequest($baseUrl, 'POST', [
+            $badCsrfRes = $this->httpRequest($baseUrl . '/', 'POST', [
                 'website'    => '',
                 'csrf_token' => 'invalid-token',
                 'name'       => 'Tester',
                 'email'      => 'tester@example.com',
                 'message'    => 'Test message',
                 'zip'        => new CURLFile($zipPath, 'application/zip', 'test.zip'),
-            ], $sessionCookie);
+            ], $originHeader);
             $badCsrfJson = json_decode($badCsrfRes['body'], true);
             $this->assertFalse($badCsrfJson['success'] ?? null);
 
-            // Valid CSRF token submitted immediately (< 4s) with spaces & apostrophes in set-*.txt
-            $validRes = $this->httpRequest($baseUrl, 'POST', [
+            // Mismatched Origin should fail explicitly
+            $badOriginRes = $this->httpRequest($baseUrl . '/', 'POST', [
+                'website'    => '',
+                'csrf_token' => $csrfToken,
+                'name'       => 'Tester',
+                'email'      => 'tester@example.com',
+                'message'    => 'Test message',
+                'zip'        => new CURLFile($zipPath, 'application/zip', 'test.zip'),
+            ], ['Origin: https://evil.example']);
+            $badOriginJson = json_decode($badOriginRes['body'], true);
+            $this->assertFalse($badOriginJson['success'] ?? null);
+            $this->assertStringContainsString('session token', (string) ($badOriginJson['error'] ?? ''));
+
+            // Missing Origin and Referer should fail explicitly
+            $noOriginRes = $this->httpRequest($baseUrl . '/', 'POST', [
+                'website'    => '',
+                'csrf_token' => $csrfToken,
+                'name'       => 'Tester',
+                'email'      => 'tester@example.com',
+                'message'    => 'Test message',
+                'zip'        => new CURLFile($zipPath, 'application/zip', 'test.zip'),
+            ]);
+            $noOriginJson = json_decode($noOriginRes['body'], true);
+            $this->assertFalse($noOriginJson['success'] ?? null);
+
+            // Valid CSRF token + matching Origin submitted without cookies
+            $validRes = $this->httpRequest($baseUrl . '/', 'POST', [
                 'website'    => '',
                 'csrf_token' => $csrfToken,
                 'name'       => 'Tester',
                 'email'      => 'tester@example.com',
                 'message'    => 'Test message',
                 'zip'        => new CURLFile($uniqueZipPath, 'application/zip', 'test.zip'),
-            ], $sessionCookie);
+            ], $originHeader);
             $validJson = json_decode($validRes['body'], true);
             $errMsg = (string) ($validJson['error'] ?? '');
 
@@ -175,7 +201,7 @@ final class AddonToolTest extends TestCase
         return $tmp;
     }
 
-    private function httpRequest(string $url, string $method = 'GET', array $postFields = [], string $cookie = ''): array
+    private function httpRequest(string $url, string $method = 'GET', array $postFields = [], array $requestHeaders = []): array
     {
         $ch = curl_init($url);
         $headers = [];
@@ -188,8 +214,8 @@ final class AddonToolTest extends TestCase
             }
             return $len;
         });
-        if ($cookie !== '') {
-            curl_setopt($ch, CURLOPT_COOKIE, $cookie);
+        if ($requestHeaders !== []) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $requestHeaders);
         }
         if ($method === 'POST') {
             curl_setopt($ch, CURLOPT_POST, true);
